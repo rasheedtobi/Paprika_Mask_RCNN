@@ -24,11 +24,11 @@ COCO_WEIGHTS_PATH = os.path.join(ROOT_DIR, "mask_rcnn_coco.h5")
 # through the command line argument --logs
 DEFAULT_LOGS_DIR = os.path.join(ROOT_DIR, "logs")
 
-# Defining a custom class for paprika
+# Defining a class for paprika
 
 
-class CustomConfig(Config):
-    """Configuration for training on the custom  dataset.
+class PaprikaConfig(Config):
+    """Configuration for training on the   dataset.
     Derives from the base Config class and overrides some values.
     """
     # Give the configuration a recognizable name
@@ -36,13 +36,13 @@ class CustomConfig(Config):
 
     # We use a GPU with 12GB memory, which can fit two images.
     # Adjust down if you use a smaller GPU.
-    IMAGES_PER_GPU = 2
+    IMAGES_PER_GPU = 1
 
     # Number of classes (including background)
-    NUM_CLASSES = 1 + 1  # Background + phone,laptop and mobile
+    NUM_CLASSES = 1 + 1  # Background + paprika
 
     # Number of training steps per epoch
-    STEPS_PER_EPOCH = 10
+    STEPS_PER_EPOCH = 30
 
     # Skip detections with < 90% confidence
     DETECTION_MIN_CONFIDENCE = 0.9
@@ -52,8 +52,8 @@ class CustomConfig(Config):
 
 class PaprikaDataset(utils.Dataset):
 
-    def load_custom(self, dataset_dir, subset):
-        """Load a subset of the Dog-Cat dataset.
+    def load_paprika(self, dataset_dir, subset):
+        """Load a subset of the dataset.
         dataset_dir: Root directory of the dataset.
         subset: Subset to load: train or val
         """
@@ -80,7 +80,7 @@ class PaprikaDataset(utils.Dataset):
         # }
         # We mostly care about the x and y coordinates of each region
         annotations1 = json.load(
-            open(os.path.join('/content/dataset/train', "via_region_data.json")))
+            open(os.path.join('./dataset/train', "via_region_data.json")))
         # annotations1 = json.load(open(os.path.join('/content/dataset/train', "via_project.json")))
         # print(annotations1)
         annotations = list(annotations1.values())  # don't need the dict keys
@@ -104,7 +104,7 @@ class PaprikaDataset(utils.Dataset):
             # load_mask() needs the image size to convert polygons to masks.
             # Unfortunately, VIA doesn't include it in JSON, so we must read
             # the image. This is only managable since the dataset is tiny.
-            image_path = os.path.join('/content/dataset/train', a['filename'])
+            image_path = os.path.join('./dataset/train', a['filename'])
             image = skimage.io.imread(image_path)
             height, width = image.shape[:2]
 
@@ -139,28 +139,7 @@ class PaprikaDataset(utils.Dataset):
         for i, p in enumerate(info["polygons"]):
             # Get indexes of pixels inside the polygon and set them to 1
             rr, cc = skimage.draw.polygon(p['all_points_y'], p['all_points_x'])
-
-            # In case the data sets conatins overflowing coordinate, Run the following codes form Here
-            print("mask.shape, min(mask),max(mask): {}, {},{}".format(
-                mask.shape, np.min(mask), np.max(mask)))
-            print("rr.shape, min(rr),max(rr): {}, {},{}".format(
-                rr.shape, np.min(rr), np.max(rr)))
-            print("cc.shape, min(cc),max(cc): {}, {},{}".format(
-                cc.shape, np.min(cc), np.max(cc)))
-
-            # Note that this modifies the existing array arr, instead of creating a result array
-            # Ref: https://stackoverflow.com/questions/19666626/replace-all-elements-of-python-numpy-array-that-are-greater-than-some-value
-            rr[rr > mask.shape[0]-1] = mask.shape[0]-1
-            cc[cc > mask.shape[1]-1] = mask.shape[1]-1
-
-            print("After fixing the dirt mask, new values:")
-            print("rr.shape, min(rr),max(rr): {}, {},{}".format(
-                rr.shape, np.min(rr), np.max(rr)))
-            print("cc.shape, min(cc),max(cc): {}, {},{}".format(
-                cc.shape, np.min(cc), np.max(cc)))
-
-            # To here
-
+            
             mask[rr, cc, i] = 1
 
         # Return mask, and array of class IDs of each instance. Since we have
@@ -182,12 +161,12 @@ def train(model):
     """Train the model."""
     # Training dataset.
     dataset_train = PaprikaDataset()
-    dataset_train.load_custom("./dataset", "train")
+    dataset_train.load_paprika("./dataset", "train")
     dataset_train.prepare()
 
     # Validation dataset
     dataset_val = PaprikaDataset()
-    dataset_val.load_custom("./dataset", "val")
+    dataset_val.load_paprika("./dataset", "val")
     dataset_val.prepare()
 
     # *** This training schedule is an example. Update to your needs ***
@@ -197,11 +176,11 @@ def train(model):
     print("Training network heads")
     model.train(dataset_train, dataset_val,
                 learning_rate=config.LEARNING_RATE,
-                epochs=5,
+                epochs=10,
                 layers='heads')
 
 
-config = CustomConfig()
+config = PaprikaConfig()
 model = modellib.MaskRCNN(mode="training", config=config,
                           model_dir=DEFAULT_LOGS_DIR)
 
